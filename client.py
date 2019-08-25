@@ -1,18 +1,33 @@
 import socket
-
-nome = input('Digite o seu nome: ')
-host = (input("Digite o Host: "))
-port = int(input("Digite o Port: "))
-
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((host, port))
-s.send(nome.encode())
+import sys
+import select
+from threading import *
 
 
-while True:
-    msg = s.recv(1024)
-    print(msg.decode("utf-8"))
-    #msg = str(nome + ': ' + input(">> "))
-    #s.send(msg.encode())
+def client():
+    nome = input('Digite o seu nome: ')
+    host = (input('Digite o Host: '))
+    port = int(input('Digite o Port: '))
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.connect((host, port))
+    server.send(nome.encode())
 
-#server.close()
+    while True:
+        # maintains a list of possible input streams
+        sockets_list = [sys.stdin, server]
+        read_sockets, write_socket, error_socket = select.select(sockets_list, [], [])
+        for socks in read_sockets:
+            if socks == server:
+                message = socks.recv(2048)
+                if message != None:
+                    print(message.decode('utf-8'))
+            else:
+                message = str(nome + ': ' + input())
+                server.send(message.encode())
+                sys.stdout.flush()
+
+
+    server.close()
+
+
+Thread(target=client).start()

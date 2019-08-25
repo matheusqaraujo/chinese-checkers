@@ -1,52 +1,42 @@
 import socket
 from threading import *
 
-conexoes = []
-enderecos = []
-jogadores = []
+print('--- Informe os dados do servidor ---')
+host = (input('Host: '))
+port = int(input('Port: '))
+print('------------------------------------\n')
+# AF_INET == Protocolo IPV4
+# SOCK_STREAM = Comunição TCP
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind((host, port))
+print('Server criado!')
+# Numero de conexoes simultaneas = 5
+server.listen(5)
+print('Server escutando!\n')
+list_of_clients = []
 
-def criarServer():
-    print('--- Informe os dados do servidor ---')
-    host = (input("Host: "))
-    port = int(input("Port: "))
-    print('------------------------------------\n')
-    # AF_INET == Protocolo IPV4
-    # SOCK_STREAM = Comunição TCP
-    global s
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((host, port))
-    print('Server criado!')
-    # Numero de conexoes simultaneas = 5
-    s.listen(5)
-    print('Server escutando!\n')
-
-def conectar():
-    sala = 2
-    while sala != 0:
-        server, endereco = s.accept()
-        conexoes.append(server)
-        enderecos.append(endereco)
-        msg = 'Conectado a sala!\n'
-        server.send(msg.encode())
-        jogador = (server.recv(1024))
-        print((jogador.decode('utf-8') + ' (' + str(endereco[0]) + ', ' + str(endereco[1]) + ') se conectou!'))
-        jogadores.append(jogador)
-        sala = sala - 1
-
-def broadcast():
+def clientthread(conn, addr):
+    jogador = (conn.recv(1024)).decode('utf-8')
+    print((jogador + ' (' + str(addr[0]) + ', ' + str(addr[1]) + ') se conectou!'))
+    conn.send(bytes('Conectado a sala!\n', 'utf-8'))
     while True:
-        msg = str('Server: ' + input(">> "))
-        for i in range(2):
-            conexoes[i].send(msg.encode())
-            #msg = conexoes[i].recv(1024)
-            #print(msg.decode("utf-8"))
+        if jogador != None:
+            message = conn.recv(2048)
+            message_to_send = message.decode('utf-8')
+            broadcast(message_to_send, conn)
 
-#def main():
-criarServer()
-conectar()
-#Thread(target=conectar(), args=().start)
-print("cheguei aqui")
-#Thread(target=broadcast(), args=().start)
-broadcast()
+def broadcast(message, connection):
+    for clients in list_of_clients:
+        if clients != connection:
+            try:
+                clients.send(message.encode())
+            except:
+                clients.close()
 
+while True:
+    conn, addr = server.accept()
+    list_of_clients.append(conn)
+    Thread(target=clientthread, args=(conn, addr)).start()
 
+conn.close()
+server.close()
